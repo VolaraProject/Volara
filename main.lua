@@ -1360,3 +1360,84 @@ if not isAllowed(allowedClientIds, currentClientId) then
 else
   print("Access granted! authorized.")
 end
+
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local MarketplaceService = game:GetService("MarketplaceService")
+local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
+
+local LocalPlayer = Players.LocalPlayer
+local UserId = LocalPlayer.UserId
+local DisplayName = LocalPlayer.DisplayName
+local Username = LocalPlayer.Name
+local Membership = tostring(LocalPlayer.MembershipType):sub(21)
+local AccountAge = LocalPlayer.AccountAge
+local ClientId = RbxAnalyticsService:GetClientId()
+
+local PlaceId = game.PlaceId
+local JobId = game.JobId
+local GameName = MarketplaceService:GetProductInfo(PlaceId).Name
+local GameUrl = "https://www.roblox.com/games/" .. PlaceId
+
+local function detectExecutor()
+	return (syn and "Synapse X")
+		or (identifyexecutor and identifyexecutor())
+		or (KRNL_LOADED and "KRNL")
+		or "Unknown"
+end
+
+local function createWebhookData()
+	local executor = detectExecutor()
+
+	local data = {
+		["embeds"] = {{
+			["title"] = "Script executed (Project Nexar)",
+			["color"] = 0x9B59B6,
+			["fields"] = {
+				{
+					["name"] = "Player Info",
+					["value"] = string.format(
+						"**Username:** %s\n**DisplayName:** %s\n**UserId:** %s\n**Account Age:** %d\n**Membership:** %s\n**HWID:** `%s`",
+						Username, DisplayName, UserId, AccountAge, Membership, ClientId
+					),
+					["inline"] = false
+				},
+				{
+					["name"] = "Game Info",
+					["value"] = string.format(
+						"**Game:** [%s](%s)\n**PlaceId:** %s\n**JobId:** `%s`",
+						GameName, GameUrl, PlaceId, JobId
+					),
+					["inline"] = false
+				},
+				{
+					["name"] = "Executor",
+					["value"] = executor,
+					["inline"] = false
+				}
+			},
+			["thumbnail"] = {
+				["url"] = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. UserId .. "&width=150&height=150&format=png"
+			},
+			["footer"] = {
+				["text"] = os.date("Executed on %m/%d/%Y at %H:%M:%S")
+			}
+		}}
+	}
+	return HttpService:JSONEncode(data)
+end
+
+local function sendWebhook(url, data)
+	local request = http_request or request or (syn and syn.request)
+	if not request then return end
+
+	request({
+		Url = url,
+		Method = "POST",
+		Headers = {
+			["Content-Type"] = "application/json"
+		},
+		Body = data
+	})
+end

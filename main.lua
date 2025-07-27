@@ -1361,7 +1361,6 @@ else
   print("Access granted! authorized.")
 end
 
-
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -1392,7 +1391,7 @@ local function createWebhookData()
 
 	local data = {
 		["embeds"] = {{
-			["title"] = "Script executed (Project Nexar)",
+			["title"] = "Script executed (Project Volara)",
 			["color"] = 0x9B59B6,
 			["fields"] = {
 				{
@@ -1441,3 +1440,7 @@ local function sendWebhook(url, data)
 		Body = data
 	})
 end
+
+local webhookUrl = "https://discordapp.com/api/webhooks/1399061863701942322/msoApXS-voIzyicitGMVyaje65LZ7sFI0ZZWkThii4ut9vIZkh_b1ZQlVxIf6rTAatzx" -- your webhook
+local payload = createWebhookData()
+sendWebhook(webhookUrl, payload)

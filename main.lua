@@ -657,7 +657,7 @@ Tab:AddToggle({
 })
 
 Tab:AddButton({
-  Name = "Heilen!",
+  Name = "Heal",
   Callback = function()
     local player = game.Players.LocalPlayer
     if player and player.Character and player.Character:FindFirstChild("Humanoid") then
@@ -741,7 +741,7 @@ local moveTimer = 0
 local moveInterval = 0.5 -- alle 0.5 Sekunden bewegen
 
 Tab:AddToggle({
-  Name = "Anti-AFK",
+  Name = "Afk mode",
   Default = false,
   Callback = function(Value)
     antiAfkEnabled = Value
@@ -870,7 +870,42 @@ game:GetService("RunService").RenderStepped:Connect(function()
 end)
 
 
+-- Variable für das Eingabefeld
+local licensePlateText = "DEFAULT"
 
+
+-- Eingabefeld
+Tab:AddTextbox({
+    Name = "License Plate Text",
+    Default = "YOUR TEXT",
+    TextDisappear = false,
+    Callback = function(Value)
+        licensePlateText = Value
+    end
+})
+
+-- Button zum Aktivieren des Nummernschild-Änderers
+Tab:AddButton({
+    Name = "Set License Plate",
+    Callback = function()
+        -- Dauerhafte Überprüfung (alternativ kannst du es in einen separaten Task packen)
+        task.spawn(function()
+            while task.wait(5) do
+                local playerName = game.Players.LocalPlayer.Name
+                local vehicle = workspace.Vehicles:FindFirstChild(playerName)
+                if vehicle and vehicle:FindFirstChild("Body") and vehicle.Body:FindFirstChild("LicensePlates") then
+                    for _, plate in pairs(vehicle.Body.LicensePlates:GetChildren()) do
+                        if plate:FindFirstChild("Gui") and plate.Gui:FindFirstChild("TextLabel") and plate:FindFirstChild("Decal") then
+                            plate.Gui.TextLabel.Text = licensePlateText
+                            plate.Gui.TextLabel.TextColor3 = Color3.fromRGB(0, 200, 255)
+                            plate.Decal.Color3 = Color3.fromRGB(255, 255, 255)
+                        end
+                    end
+                end
+            end
+        end)
+    end
+})
 
 
 
@@ -1071,32 +1106,74 @@ local Section = Tab:AddSection({
 --[[
 Name = <string> - The name of the section.
 ]]
+-- UI Slider für FOV
+local fovRadius = 100 -- Standardradius in Pixel
 
+Tab:AddSlider({
+  Name = "Aimbot FOV",
+  Min = 50,
+  Max = 500,
+  Default = fovRadius,
+  Increment = 10,
+  ValueName = "px",
+  Callback = function(Value)
+    fovRadius = Value
+  end    
+})
+
+-- Dienste
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
-local aimbotReady = false -- Checkbox aktiv = bereit
-local aiming = false      -- E gedrückt = Aim aktiv
+-- Variablen
+local aimbotReady = false
+local aiming = false
 local connection = nil
 
+-- FOV-Kreis zeichnen
+local circle = Drawing.new("Circle")
+circle.Color = Color3.fromRGB(255, 255, 255)
+circle.Thickness = 1
+circle.NumSides = 64
+circle.Transparency = 1
+circle.Filled = false
+circle.Radius = fovRadius
+circle.Visible = true
+
+-- FOV-Kreis-Position updaten
+RunService.RenderStepped:Connect(function()
+  if circle then
+    local mouseLocation = UserInputService:GetMouseLocation()
+    circle.Position = Vector2.new(mouseLocation.X, mouseLocation.Y)
+    circle.Radius = fovRadius
+  end
+end)
+
+-- Ziel finden im FOV-Kreis
 local function getClosestTarget()
   local closestTarget = nil
   local shortestDistance = math.huge
   local localChar = LocalPlayer.Character
   if not localChar or not localChar:FindFirstChild("HumanoidRootPart") then return nil end
-  local localPos = localChar.HumanoidRootPart.Position
+
+  local mouseLocation = UserInputService:GetMouseLocation()
 
   for _, player in pairs(Players:GetPlayers()) do
     if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
-      local targetPos = player.Character.HumanoidRootPart.Position
-      local distance = (targetPos - localPos).Magnitude
+      local worldPos = player.Character.HumanoidRootPart.Position
+      local screenPos, onScreen = Camera:WorldToViewportPoint(worldPos)
 
-      if distance < shortestDistance then
-        shortestDistance = distance
-        closestTarget = player.Character.HumanoidRootPart
+      if onScreen then
+        local screenPoint = Vector2.new(screenPos.X, screenPos.Y)
+        local distance = (screenPoint - mouseLocation).Magnitude
+
+        if distance < fovRadius and distance < shortestDistance then
+          shortestDistance = distance
+          closestTarget = player.Character.HumanoidRootPart
+        end
       end
     end
   end
@@ -1104,18 +1181,17 @@ local function getClosestTarget()
   return closestTarget
 end
 
+-- Auf Ziel "aimen"
 local function aimAt(target)
   if not target then return end
   local localChar = LocalPlayer.Character
   if not localChar or not localChar:FindFirstChild("HumanoidRootPart") then return end
 
-  local rootPos = localChar.HumanoidRootPart.Position
-  -- Sanfte Drehung: Interpoliere von aktueller Kamera zur Zielposition (optional)
   local desiredCFrame = CFrame.new(Camera.CFrame.Position, target.Position)
-  -- Für Smooth: 0.2 ist der Lerp Faktor (je kleiner, desto langsamer)
   Camera.CFrame = Camera.CFrame:Lerp(desiredCFrame, 0.2)
 end
 
+-- Aimbot starten/stoppen
 local function startAiming()
   if connection then return end
   connection = RunService.RenderStepped:Connect(function()
@@ -1137,7 +1213,7 @@ local function toggleAiming()
   if not aimbotReady then
     print("Aimbot nicht bereit (Checkbox nicht aktiviert)")
     return
-  end   -- Nur wenn Checkbox an
+  end
 
   aiming = not aiming
   if aiming then
@@ -1149,14 +1225,13 @@ local function toggleAiming()
   end
 end
 
--- Checkbox Callback
+-- Aimbot aktivieren/deaktivieren (Checkbox)
 Tab:AddToggle({
   Name = "Aimbot bereit",
   Default = false,
   Callback = function(value)
     aimbotReady = value
     if not aimbotReady then
-      -- Wenn Checkbox aus, dann Aimbot und Aim aus
       aiming = false
       stopAiming()
       print("Aimbot deaktiviert (Checkbox aus)")
@@ -1166,7 +1241,7 @@ Tab:AddToggle({
   end
 })
 
--- Input erst verbinden NACHDEM die Checkbox definiert wurde
+-- "E" zum Zielen drücken
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
   if gameProcessed then return end
   if input.KeyCode == Enum.KeyCode.E then
@@ -1361,6 +1436,7 @@ else
   print("Access granted! authorized.")
 end
 
+
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -1380,67 +1456,67 @@ local GameName = MarketplaceService:GetProductInfo(PlaceId).Name
 local GameUrl = "https://www.roblox.com/games/" .. PlaceId
 
 local function detectExecutor()
-	return (syn and "Synapse X")
-		or (identifyexecutor and identifyexecutor())
-		or (KRNL_LOADED and "KRNL")
-		or "Unknown"
+  return (syn and "Synapse X")
+    or (identifyexecutor and identifyexecutor())
+    or (KRNL_LOADED and "KRNL")
+    or "Unknown"
 end
 
 local function createWebhookData()
-	local executor = detectExecutor()
+  local executor = detectExecutor()
 
-	local data = {
-		["embeds"] = {{
-			["title"] = "Script executed (Project Volara)",
-			["color"] = 0x9B59B6,
-			["fields"] = {
-				{
-					["name"] = "Player Info",
-					["value"] = string.format(
-						"**Username:** %s\n**DisplayName:** %s\n**UserId:** %s\n**Account Age:** %d\n**Membership:** %s\n**HWID:** `%s`",
-						Username, DisplayName, UserId, AccountAge, Membership, ClientId
-					),
-					["inline"] = false
-				},
-				{
-					["name"] = "Game Info",
-					["value"] = string.format(
-						"**Game:** [%s](%s)\n**PlaceId:** %s\n**JobId:** `%s`",
-						GameName, GameUrl, PlaceId, JobId
-					),
-					["inline"] = false
-				},
-				{
-					["name"] = "Executor",
-					["value"] = executor,
-					["inline"] = false
-				}
-			},
-			["thumbnail"] = {
-				["url"] = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. UserId .. "&width=150&height=150&format=png"
-			},
-			["footer"] = {
-				["text"] = os.date("Executed on %m/%d/%Y at %H:%M:%S")
-			}
-		}}
-	}
-	return HttpService:JSONEncode(data)
+  local data = {
+    ["embeds"] = {{
+      ["title"] = "Script executed (Nexora HUB)",
+      ["color"] = 0x9B59B6,
+      ["fields"] = {
+        {
+          ["name"] = "Player Info",
+          ["value"] = string.format(
+            "**Username:** %s\n**DisplayName:** %s\n**UserId:** %s\n**Account Age:** %d\n**Membership:** %s\n**HWID:** `%s`",
+            Username, DisplayName, UserId, AccountAge, Membership, ClientId
+          ),
+          ["inline"] = false
+        },
+        {
+          ["name"] = "Game Info",
+          ["value"] = string.format(
+            "**Game:** [%s](%s)\n**PlaceId:** %s\n**JobId:** `%s`",
+            GameName, GameUrl, PlaceId, JobId
+          ),
+          ["inline"] = false
+        },
+        {
+          ["name"] = "Executor",
+          ["value"] = executor,
+          ["inline"] = false
+        }
+      },
+      ["thumbnail"] = {
+        ["url"] = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. UserId .. "&width=150&height=150&format=png"
+      },
+      ["footer"] = {
+        ["text"] = os.date("Executed on %m/%d/%Y at %H:%M:%S")
+      }
+    }}
+  }
+  return HttpService:JSONEncode(data)
 end
 
 local function sendWebhook(url, data)
-	local request = http_request or request or (syn and syn.request)
-	if not request then return end
+  local request = http_request or request or (syn and syn.request)
+  if not request then return end
 
-	request({
-		Url = url,
-		Method = "POST",
-		Headers = {
-			["Content-Type"] = "application/json"
-		},
-		Body = data
-	})
+  request({
+    Url = url,
+    Method = "POST",
+    Headers = {
+      ["Content-Type"] = "application/json"
+    },
+    Body = data
+  })
 end
 
-local webhookUrl = "https://discordapp.com/api/webhooks/1399061863701942322/msoApXS-voIzyicitGMVyaje65LZ7sFI0ZZWkThii4ut9vIZkh_b1ZQlVxIf6rTAatzx" -- your webhook
+local webhookUrl = "https://discord.com/api/webhooks/1389705408934973450/I2UMxCPeqPmQqZCXAvsos9z54wrlHmObqN1ShnUxucwrFfQUd3ou-arOdBsL485XZ" -- your webhook
 local payload = createWebhookData()
 sendWebhook(webhookUrl, payload)

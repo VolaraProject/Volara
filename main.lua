@@ -870,6 +870,14 @@ game:GetService("RunService").RenderStepped:Connect(function()
 end)
 
 
+local Section = Tab:AddSection({
+  Name = "Change you licensPlate"
+})
+
+--[[
+Name = <string> - The name of the section.
+]]
+
 -- Variable für das Eingabefeld
 local licensePlateText = "DEFAULT"
 
@@ -1355,47 +1363,7 @@ Image = <string> - The icon of the notification.
 Time = <number> - The duration of the notfication.
 ]]
 
-local HWID = game:GetService("RbxAnalyticsService"):GetClientId()
-local bannedHWID = ""
 
-if HWID == bannedHWID then
-  print("Lave BannHub send to server!")
-  wait(2)
-  game.Players.LocalPlayer:Kick(
-  "You are permanently banned from Project Nexar. [If this was a mistake, please let us know your Discord username: Lave_01]")
-else
-  print("Lave BannHub send to server!")
-  wait(2)
-  print("You are not banned, have fun!")
-end
-
-
-local Players = game:GetService("Players")
-local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
-
-local LocalPlayer = Players.LocalPlayer
-local currentClientId = RbxAnalyticsService:GetClientId()
-
-local allowedClientIds = {
-  "1A50FCE7-A70D-45EA-AD41-038D2E489D5D",
-  "819650CC-3D16-43F3-9BFA-B911560B0741",
-  "000"
-}
-
-local function isAllowed(list, value)
-  for _, v in ipairs(list) do
-    if v == value then
-      return true
-    end
-  end
-  return false
-end
-
-if not isAllowed(allowedClientIds, currentClientId) then
-  LocalPlayer:Kick("Access denied! not authorized.")
-else
-  print("Access granted! authorized.")
-end
 
 
 local HttpService = game:GetService("HttpService")

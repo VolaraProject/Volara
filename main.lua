@@ -753,28 +753,111 @@ Tab:AddToggle({
   end
 })
 
-RunService.Heartbeat:Connect(function(dt)
-  if antiAfkEnabled then
-    moveTimer = moveTimer + dt
-    if moveTimer >= moveInterval then
-      moveTimer = 0
-      local currentCFrame = humanoidRootPart.CFrame
-      humanoidRootPart.CFrame = currentCFrame * CFrame.new(moveAmount * moveDirection, 0, 0)
-      moveDirection = -moveDirection
+-- // StarterGui.RobloxUpdater1.MainTab.Frames.Misc.ScrollingFrame1.Fly.LocalScript \\ --
+
+local player = game:GetService("Players").LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local flyingSpeed = 49
+local isFlying = false
+
+-- Fly-Funktionen
+local attachment, alignPosition, alignOrientation
+
+local function canFly()
+  -- Spieler darf nicht fliegen, wenn er auf einem Sitz sitzt
+  return player.Character and player.Character:FindFirstChild("Humanoid") and player.Character:FindFirstChild("Humanoid").SeatPart == nil
+end
+
+local function enableFly()
+  if not canFly() or isFlying then return end
+
+  local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
+  local humanoid = player.Character:FindFirstChild("Humanoid")
+
+  attachment = Instance.new("Attachment", humanoidRootPart)
+
+  alignPosition = Instance.new("AlignPosition")
+  alignPosition.Attachment0 = attachment
+  alignPosition.Mode = Enum.PositionAlignmentMode.OneAttachment
+  alignPosition.MaxForce = 5000
+  alignPosition.Responsiveness = 45
+  alignPosition.Parent = humanoidRootPart
+
+  alignOrientation = Instance.new("AlignOrientation")
+  alignOrientation.Attachment0 = attachment
+  alignOrientation.Mode = Enum.OrientationAlignmentMode.OneAttachment
+  alignOrientation.MaxTorque = 5000
+  alignOrientation.Responsiveness = 45
+  alignOrientation.Parent = humanoidRootPart
+
+  humanoid.PlatformStand = true
+  isFlying = true
+
+  local lastPosition = humanoidRootPart.Position
+  alignPosition.Position = lastPosition
+
+  local function flyLoop()
+    while isFlying do
+      local moveDirection = Vector3.new()
+      local camCFrame = workspace.CurrentCamera.CFrame
+
+      if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+        moveDirection += camCFrame.LookVector
+      end
+      if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+        moveDirection -= camCFrame.LookVector
+      end
+      if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+        moveDirection -= camCFrame.RightVector
+      end
+      if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+        moveDirection += camCFrame.RightVector
+      end
+
+      if moveDirection.Magnitude > 0 then
+        moveDirection = moveDirection.Unit
+        local newPosition = lastPosition + (moveDirection * flyingSpeed * RunService.Heartbeat:Wait())
+        alignPosition.Position = newPosition
+        lastPosition = newPosition
+      end
+
+      alignOrientation.CFrame = CFrame.new(Vector3.new(), camCFrame.LookVector)
+      RunService.Heartbeat:Wait()
     end
   end
-end)
 
+  task.spawn(flyLoop)
+end
 
+local function disableFly()
+  if not isFlying then return end
 
-
-Tab:AddButton({
-  Name = "Fliegen aktivieren",
-  Callback = function()
-    canFly = true
-    print("Fliegen freigeschaltet! Drücke V zum Fliegen.")
+  isFlying = false
+  local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
+  if humanoid then
+    humanoid.PlatformStand = false
   end
+  if attachment then attachment:Destroy() end
+  if alignPosition then alignPosition:Destroy() end
+  if alignOrientation then alignOrientation:Destroy() end
+end
+
+-- GUI Button hinzufügen
+Tab:AddButton({
+  Name = "Fly Toggle",
+  Callback = function()
+    if isFlying then
+      print("Fly deaktiviert")
+      disableFly()
+    else
+      print("Fly aktiviert")
+      enableFly()
+    end
+  end    
 })
+
 
 local Tab = Window:MakeTab({
   Name = "Car",
